@@ -64,6 +64,30 @@ test('abort discards writes and revives deleted rows', () => {
   assert.equal(after.read('y'), undefined, 'inserted row discarded');
 });
 
+test('aborting a losing writer restores the version it superseded', () => {
+  // Lost update at Repeatable Read: T2 cannot see T1's new version, so it
+  // re-closes the seeded version. When T2 then loses first-updater-wins and
+  // aborts, that seeded version must be restored to T1's supersession — not
+  // revived as live. A regression leaves two live versions in the chain.
+  const db = new Database({ counter: 100 });
+  const t1 = db.begin(ISO.REPEATABLE_READ);
+  const t2 = db.begin(ISO.REPEATABLE_READ);
+  t1.read('counter');
+  t2.read('counter');
+  t1.write('counter', 110);
+  t1.commit();
+  t2.write('counter', 120);
+  assert.throws(() => t2.commit(), SerializationError);
+
+  const live = db.versionsOf('counter').filter((v) => v.xmax == null);
+  assert.deepEqual(
+    live.map((v) => v.value),
+    [110],
+    'exactly one live version remains after the loser aborts',
+  );
+  assert.equal(db.committedValue('counter'), 110);
+});
+
 test('serializable aborts the loser of a concurrent write conflict', () => {
   const db = new Database({ x: 1 });
   const t1 = db.begin(ISO.SERIALIZABLE);
