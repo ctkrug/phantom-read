@@ -152,6 +152,29 @@ test('picking a scenario re-arms the timeline to the start', async () => {
   assert.equal(app.state.scenario.id, 'phantom-read');
 });
 
+test('the module boot wires the real DOM and opens the hash-linked scenario', async () => {
+  // Drive app.js's top-level boot the way a browser would: real element ids,
+  // a deep-link hash, a window with addEventListener, and querySelectorAll for
+  // the landing CTAs. It must mount without throwing and render into #rail.
+  const ids = {};
+  for (const id of ['rail', 'stage', 'panel', 'mute', 'callout', 'live']) ids[id] = new FakeNode('div');
+  ids.mute.append(new FakeNode('span'));
+  const doc = fakeDocument();
+  const cards = [];
+  globalThis.document = {
+    ...doc,
+    getElementById: (id) => ids[id] ?? null,
+    querySelectorAll: () => cards,
+  };
+  globalThis.window = { addEventListener() {} };
+  globalThis.location = { hash: '#phantom-read' };
+  await import('../src/ui/app.js?boot=1');
+  assert.ok(ids.rail.children.length > 0, 'the rail rendered');
+  assert.match(allText(ids.rail), /Phantom read/i, 'the deep-linked scenario is active');
+  delete globalThis.window;
+  delete globalThis.location;
+});
+
 test('scenarioIdFromHash accepts known ids and rejects junk', async () => {
   globalThis.document = fakeDocument();
   const { scenarioIdFromHash } = await import('../src/ui/app.js');
