@@ -35,6 +35,41 @@
       </button>
     </header>
 
+    <section class="landing" aria-label="About Phantom Read">
+      <div class="landing__lede">
+        <h1 class="landing__headline">
+          Isolation levels, <em>modelled</em> — not illustrated.
+        </h1>
+        <p class="landing__copy">
+          Two transactions, a shared table, and a real MVCC engine. Pick each
+          transaction's isolation level and step them through, action by action.
+          Every read resolves against a real snapshot; every write appends a real
+          version. The anomalies happen because the semantics produce them — raise
+          the level and they vanish on their own.
+        </p>
+        <button class="cta" type="button" data-scenario="write-skew">
+          ▶ Run the write-skew wow moment
+        </button>
+      </div>
+      <div class="landing__cards">
+        <button class="acard acard--dirty" type="button" data-scenario="dirty-read">
+          <span class="acard__name">Dirty read</span>
+          <span class="acard__desc">Reading another transaction's uncommitted write — and why it never happens here.</span>
+          <span class="acard__go">Try it →</span>
+        </button>
+        <button class="acard acard--phantom" type="button" data-scenario="phantom-read">
+          <span class="acard__name">Phantom read</span>
+          <span class="acard__desc">A row appears between two scans — unless the snapshot is frozen.</span>
+          <span class="acard__go">Try it →</span>
+        </button>
+        <button class="acard acard--skew" type="button" data-scenario="write-skew">
+          <span class="acard__name">Write skew</span>
+          <span class="acard__desc">Two safe-looking commits break one invariant — only Serializable stops it.</span>
+          <span class="acard__go">Try it →</span>
+        </button>
+      </div>
+    </section>
+
     <main id="app" class="app" aria-label="Isolation-level sandbox">
       <aside class="rail" id="rail" aria-label="Controls"></aside>
       <section class="stage" id="stage" aria-label="Transaction timeline"></section>
