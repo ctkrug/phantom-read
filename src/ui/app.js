@@ -218,15 +218,14 @@ export function createApp(roots, opts = {}) {
     const rail = el('div', { class: 'rail__inner' });
 
     rail.append(el('h2', { class: 'rail__heading', text: 'Scenario' }));
-    const picker = el('div', { class: 'picker', role: 'tablist', aria: { label: 'Scenario' } });
+    const picker = el('div', { class: 'picker', role: 'group', aria: { label: 'Scenario' } });
     for (const s of SCENARIOS) {
       const active = s.id === state.scenario.id;
       picker.append(
         el('button', {
           class: `pill ${active ? 'pill--on' : ''}`,
           type: 'button',
-          role: 'tab',
-          aria: { selected: String(active) },
+          aria: { pressed: String(active) },
           onClick: () => pickScenario(s.id),
         }, s.title),
       );
