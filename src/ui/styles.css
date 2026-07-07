@@ -647,3 +647,79 @@ body {
   }
   .confetti { display: none; }
 }
+
+/* ---- landing band ---- */
+
+.landing {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: calc(var(--unit) * 2) calc(var(--unit) * 3) 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: calc(var(--unit) * 3);
+  align-items: center;
+}
+
+.landing__headline {
+  margin: 0 0 var(--unit);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(1.5rem, 3.4vw, 2.3rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.landing__headline em { color: var(--cyan); font-style: normal; }
+
+.landing__copy {
+  margin: 0 0 calc(var(--unit) * 2);
+  max-width: 62ch;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.cta {
+  min-height: 48px;
+  padding: 0 calc(var(--unit) * 2.5);
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--paper);
+  background: var(--cyan);
+  border: 1px solid var(--cyan);
+  border-radius: var(--radius-chip);
+  box-shadow: 0 12px 30px -14px rgba(88, 196, 220, 0.8);
+  cursor: pointer;
+  transition: transform 100ms var(--ease), background 140ms var(--ease), box-shadow 140ms var(--ease);
+}
+.cta:hover { background: #6fd2e8; box-shadow: 0 16px 36px -14px rgba(88, 196, 220, 0.95); }
+.cta:active { transform: translateY(2px); box-shadow: none; }
+.cta:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+.landing__cards { display: grid; gap: var(--unit); }
+.acard {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  padding: calc(var(--unit) * 1.5) calc(var(--unit) * 2);
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--paper-2), var(--surface));
+  border: 1px solid var(--surface-line);
+  border-left-width: 3px;
+  border-radius: var(--radius-chip);
+  box-shadow: var(--inset);
+  cursor: pointer;
+  transition: transform 140ms var(--ease), border-color 140ms var(--ease), box-shadow 140ms var(--ease);
+}
+.acard--dirty { border-left-color: var(--muted); }
+.acard--phantom { border-left-color: var(--cyan); }
+.acard--skew { border-left-color: var(--coral); }
+.acard:hover { transform: translateX(3px); box-shadow: var(--inset), var(--shadow); }
+.acard:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.acard__name { font-family: var(--display); font-weight: 500; font-size: 0.95rem; }
+.acard__desc { font-size: 0.76rem; color: var(--muted); line-height: 1.45; }
+.acard__go { font-size: 0.72rem; color: var(--cyan); margin-top: 2px; }
+
+@media (max-width: 860px) {
+  .landing { grid-template-columns: minmax(0, 1fr); }
+}
