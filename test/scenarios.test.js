@@ -76,6 +76,18 @@ test('phantom-read appears under RC and is prevented under RR', () => {
   );
 });
 
+test('lost-update slips through RC but the second writer aborts under RR', () => {
+  const s = scenarioById('lost-update');
+  // Read Committed: both commit; the final counter reflects only T2's write.
+  const rc = run(s, ISO.READ_COMMITTED);
+  assert.equal(rc.error, null, 'read committed lets both commit — update lost');
+  // Repeatable Read: first-updater-wins aborts T2's overwrite.
+  assert.ok(
+    run(s, ISO.REPEATABLE_READ).error instanceof SerializationError,
+    'repeatable read makes the loser abort',
+  );
+});
+
 test('write-skew commits under RR but the loser aborts under Serializable', () => {
   const s = scenarioById('write-skew');
   assert.equal(run(s, ISO.REPEATABLE_READ).error, null, 'write skew slips through RR');
