@@ -1,5 +1,7 @@
 # Phantom Read
 
+[![CI](https://github.com/ctkrug/phantom-read/actions/workflows/ci.yml/badge.svg)](https://github.com/ctkrug/phantom-read/actions/workflows/ci.yml)
+
 **An interactive sandbox for database isolation levels.** Run two transactions
 side by side, pick each one's isolation level, and watch dirty reads, phantom
 reads, and write skew happen — or *not* happen — one step at a time.
