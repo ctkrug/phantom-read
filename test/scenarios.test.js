@@ -42,7 +42,7 @@ function run(scenario, iso) {
   } catch (e) {
     error = e;
   }
-  return { reads, error };
+  return { reads, error, db };
 }
 
 test('every scenario has a stable shape', () => {
@@ -78,21 +78,28 @@ test('phantom-read appears under RC and is prevented under RR', () => {
 
 test('lost-update slips through RC but the second writer aborts under RR', () => {
   const s = scenarioById('lost-update');
-  // Read Committed: both commit; the final counter reflects only T2's write.
+  // Read Committed: both commit; the final counter reflects only T2's write —
+  // T1's +10 is silently overwritten (the lost update).
   const rc = run(s, ISO.READ_COMMITTED);
   assert.equal(rc.error, null, 'read committed lets both commit — update lost');
-  // Repeatable Read: first-updater-wins aborts T2's overwrite.
-  assert.ok(
-    run(s, ISO.REPEATABLE_READ).error instanceof SerializationError,
-    'repeatable read makes the loser abort',
-  );
+  assert.equal(rc.db.committedValue('counter'), 120, "T1's update is lost; only T2's survives");
+  // Repeatable Read: first-updater-wins aborts T2's overwrite, so T1's value stands.
+  const rr = run(s, ISO.REPEATABLE_READ);
+  assert.ok(rr.error instanceof SerializationError, 'repeatable read makes the loser abort');
+  assert.equal(rr.db.committedValue('counter'), 110, "T1's update is preserved after the abort");
 });
 
 test('write-skew commits under RR but the loser aborts under Serializable', () => {
   const s = scenarioById('write-skew');
-  assert.equal(run(s, ISO.REPEATABLE_READ).error, null, 'write skew slips through RR');
-  assert.ok(
-    run(s, ISO.SERIALIZABLE).error instanceof SerializationError,
-    'serializable catches it',
-  );
+  // Repeatable Read: both doctors go off call — the invariant (someone on call)
+  // is broken.
+  const rr = run(s, ISO.REPEATABLE_READ);
+  assert.equal(rr.error, null, 'write skew slips through RR');
+  const onCallRR = rr.db.committedValue('alice-oncall') + rr.db.committedValue('bob-oncall');
+  assert.equal(onCallRR, 0, 'nobody is on call — the invariant is violated');
+  // Serializable: the antidependency check aborts the loser, so one stays on call.
+  const ser = run(s, ISO.SERIALIZABLE);
+  assert.ok(ser.error instanceof SerializationError, 'serializable catches it');
+  const onCallSer = ser.db.committedValue('alice-oncall') + ser.db.committedValue('bob-oncall');
+  assert.equal(onCallSer, 1, 'exactly one doctor remains on call — the invariant holds');
 });
