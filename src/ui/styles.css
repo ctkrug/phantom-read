@@ -160,11 +160,61 @@ body {
   border-top: 1px solid rgba(120, 190, 230, 0.12);
 }
 
+.colophon__links {
+  display: inline-flex;
+  gap: calc(var(--unit) * 2);
+}
 .colophon__link {
   color: var(--cyan);
   text-decoration: none;
 }
 .colophon__link:hover { text-decoration: underline; }
+
+/* ---- learn / FAQ band (SEO copy, below the app) ---- */
+
+.learn {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: calc(var(--unit) * 4) calc(var(--unit) * 3) calc(var(--unit) * 2);
+}
+.learn__inner {
+  background: linear-gradient(180deg, var(--paper-2), var(--surface));
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius);
+  padding: calc(var(--unit) * 3.5);
+  box-shadow: var(--inset), var(--shadow);
+}
+.learn__h {
+  margin: calc(var(--unit) * 3) 0 var(--unit);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.learn__h:first-child { margin-top: 0; }
+.learn p {
+  margin: 0 0 var(--unit);
+  max-width: 68ch;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.faq { margin: 0; }
+.faq dt {
+  margin-top: calc(var(--unit) * 2);
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: var(--cyan);
+}
+.faq dd {
+  margin: var(--unit) 0 0;
+  max-width: 68ch;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
 
 .noscript {
   text-align: center;
