@@ -4,6 +4,7 @@ package-lock.json
 
 # Build / coverage output
 dist/
+site/
 coverage/
 *.tsbuildinfo
 

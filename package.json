@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
+    "build": "node scripts/build.js",
     "start": "node scripts/serve.js",
     "lint": "for f in src/engine/mvcc.js src/engine/scenarios.js src/engine/stepper.js src/ui/app.js src/ui/sound.js; do node --check \"$f\" || exit 1; done"
   },
