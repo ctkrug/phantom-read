@@ -59,6 +59,28 @@ export const SCENARIOS = [
     ],
   },
   {
+    id: 'lost-update',
+    title: 'Lost update',
+    anomaly: 'lost-update',
+    blurb:
+      'Both transactions read the same counter, each adds to it, and both ' +
+      'commit. Under Read Committed one update silently overwrites the other; ' +
+      'Repeatable Read makes the second writer lose the race and abort.',
+    seed: { counter: 100 },
+    defaultIso: ISO.READ_COMMITTED,
+    preventedAtOrAbove: ISO.REPEATABLE_READ,
+    steps: [
+      { actor: 'T1', op: 'begin', note: 'T1 starts' },
+      { actor: 'T2', op: 'begin', note: 'T2 starts' },
+      { actor: 'T1', op: 'read', key: 'counter', note: 'T1 reads counter (100)' },
+      { actor: 'T2', op: 'read', key: 'counter', note: 'T2 reads counter (100)' },
+      { actor: 'T1', op: 'write', key: 'counter', value: 110, note: 'T1 writes 100 + 10' },
+      { actor: 'T1', op: 'commit', note: 'T1 commits' },
+      { actor: 'T2', op: 'write', key: 'counter', value: 120, note: 'T2 writes 100 + 20' },
+      { actor: 'T2', op: 'commit', note: "T2 commits — T1's +10 lost?" },
+    ],
+  },
+  {
     id: 'write-skew',
     title: 'Write skew',
     anomaly: 'write-skew',
