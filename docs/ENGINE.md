@@ -73,9 +73,29 @@ write skew. Those are caught at commit:
 
 ## Abort
 
-Aborting removes every version the transaction created and clears any `xmax`
-stamps it placed, reviving rows it had tried to delete — as if the transaction
-never ran.
+Aborting removes every version the transaction created and undoes any `xmax`
+stamps it placed — as if the transaction never ran. Undoing a stamp restores the
+version's *prior* `xmax`: usually `null` (reviving a row it had tried to delete),
+but if a concurrent transaction had already superseded that version under our
+frozen snapshot, the stamp is restored to that committed transaction's id so the
+chain keeps exactly one live version.
+
+## Modeled concurrency, and its boundary
+
+The engine models **snapshot isolation with commit-time conflict detection**. It
+deliberately does **not** model row-level write locks. In a real database, a
+second transaction that updates a row already updated by another *uncommitted*
+transaction **blocks** until the first resolves. There is no blocking in a
+step-at-a-time replay, so histories where two transactions hold concurrent
+*uncommitted* writes to the **same key** are outside the modeled space — under
+Read Committed they can leave two live versions in a chain, because neither
+writer can see (and therefore close) the other's pending version.
+
+This boundary is never crossed by the shipped product: all four curated
+scenarios write disjoint keys concurrently (write skew) or serialise their writes
+to a shared key behind a commit (lost update), so the version chain the UI draws
+always resolves to a single live version. The property tests
+(`test/mvcc.property.test.js`) fuzz within this contract.
 
 ## Why this matters
 
