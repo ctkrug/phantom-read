@@ -163,9 +163,47 @@ export function createApp(roots, opts = {}) {
     }
     rail.append(picker);
     rail.append(el('p', { class: 'rail__blurb', text: state.scenario.blurb }));
+    rail.append(renderHint());
+
+    rail.append(el('h2', { class: 'rail__heading', text: 'Isolation level' }));
+    rail.append(renderLevels('T1'));
+    rail.append(renderLevels('T2'));
 
     rail.append(renderTransport());
     return rail;
+  }
+
+  function renderHint() {
+    const s = state.scenario;
+    return el('p', { class: 'hint' },
+      el('span', { class: 'hint__fire', text: `fires ≤ ${isoLabel(s.defaultIso)}` }),
+      el('span', { class: 'hint__sep', text: '·' }),
+      el('span', { class: 'hint__safe', text: `safe ≥ ${isoLabel(s.preventedAtOrAbove)}` }),
+    );
+  }
+
+  function renderLevels(actor) {
+    const current = state.stepper.levels[actor];
+    const group = el('div', {
+      class: `seg seg--${actor.toLowerCase()}`,
+      role: 'radiogroup',
+      aria: { label: `${actor} isolation level` },
+    });
+    group.append(el('span', { class: 'seg__label', text: actor }));
+    for (const iso of ISO_ORDER) {
+      const on = iso === current;
+      group.append(
+        el('button', {
+          class: `seg__opt ${on ? 'seg__opt--on' : ''}`,
+          type: 'button',
+          role: 'radio',
+          aria: { checked: String(on), label: isoLabel(iso) },
+          title: isoLabel(iso),
+          onClick: () => setLevel(actor, iso),
+        }, ISO_SHORT[iso]),
+      );
+    }
+    return group;
   }
 
   function renderTransport() {
