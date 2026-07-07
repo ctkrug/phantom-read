@@ -22,15 +22,35 @@
         <span class="wordmark__name">Phantom<span class="wordmark__accent">Read</span></span>
       </div>
       <p class="tagline">A two-transaction sandbox for database isolation levels</p>
+      <button
+        id="mute"
+        class="mute"
+        type="button"
+        aria-pressed="false"
+        aria-label="Toggle sound"
+        title="Toggle sound"
+      >
+        <span class="mute__icon" aria-hidden="true">♪</span>
+        <span class="mute__label">Sound</span>
+      </button>
     </header>
 
-    <main id="app" class="app">
-      <p class="boot">Booting MVCC engine…</p>
+    <main id="app" class="app" aria-label="Isolation-level sandbox">
+      <aside class="rail" id="rail" aria-label="Controls"></aside>
+      <section class="stage" id="stage" aria-label="Transaction timeline"></section>
+      <aside class="panel" id="panel" aria-label="What just happened"></aside>
     </main>
+
+    <div id="callout" class="callout" role="status" aria-live="polite" hidden></div>
 
     <footer class="colophon">
       <span>Simulated MVCC · no server, no database — just the semantics.</span>
+      <a href="https://github.com/ctkrug/phantom-read" class="colophon__link">Source</a>
     </footer>
+
+    <noscript>
+      <p class="noscript">Phantom Read needs JavaScript to run its live MVCC engine.</p>
+    </noscript>
 
     <script type="module" src="./src/ui/app.js"></script>
   </body>
