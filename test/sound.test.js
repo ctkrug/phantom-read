@@ -104,3 +104,36 @@ test('an unknown event plays nothing', () => {
   board.resume();
   assert.equal(board.play('nonsense'), false);
 });
+
+test('hostile storage never breaks construction, mute, or persistence', () => {
+  const hostile = {
+    getItem() { throw new Error('SecurityError'); },
+    setItem() { throw new Error('QuotaExceeded'); },
+  };
+  let board;
+  assert.doesNotThrow(() => { board = new SoundBoard({ AudioCtx: null, storage: hostile }); });
+  assert.equal(board.muted, false, 'a throwing getItem falls back to unmuted');
+  assert.doesNotThrow(() => board.setMuted(true), 'a throwing setItem is swallowed');
+  assert.equal(board.muted, true, 'the in-memory mute state still updates');
+});
+
+test('a throwing AudioContext constructor degrades to silence, not a crash', () => {
+  class Boom {
+    constructor() { throw new Error('no audio device'); }
+  }
+  const board = new SoundBoard({ AudioCtx: Boom, storage: fakeStorage() });
+  assert.doesNotThrow(() => board.resume());
+  assert.equal(board.play('commit'), false, 'no context means no sound');
+});
+
+test('a voice that throws mid-schedule is caught and reported as no sound', () => {
+  class Flaky {
+    constructor() { this.currentTime = 0; this.state = 'running'; this.destination = {}; }
+    resume() {}
+    createOscillator() { throw new Error('oscillator failed'); }
+    createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect: () => ({ connect() {} }) }; }
+  }
+  const board = new SoundBoard({ AudioCtx: Flaky, storage: fakeStorage() });
+  board.resume();
+  assert.equal(board.play('commit'), false, 'a failed schedule returns false without throwing');
+});
