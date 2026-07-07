@@ -181,19 +181,40 @@ export class Transaction {
   }
 
   /**
-   * Commit. Repeatable Read and Serializable enforce first-updater-wins: if a
-   * concurrent transaction committed a write to one of our keys after we began,
-   * we lose and abort with a SerializationError.
+   * Commit and run the isolation level's conflict checks.
+   *
+   * - Repeatable Read / Serializable enforce first-updater-wins: a concurrent
+   *   transaction that committed a write to one of *our* written keys makes us
+   *   lose the write-write race and abort.
+   * - Serializable additionally checks read-write antidependencies: if a
+   *   concurrent transaction committed a write to a key we *read*, our snapshot
+   *   is no longer serializable and we abort. This is what catches write skew,
+   *   where the two transactions write disjoint keys but read each other's.
+   *   The check is conservative (it can abort a safe interleaving) — the same
+   *   trade-off real snapshot-isolation implementations accept.
    */
   commit() {
     this._assertActive();
     const txn = this._txn;
+    const concurrentCommitted = (other) =>
+      other.id !== txn.id &&
+      other.status === TXN.COMMITTED &&
+      !txn.snapshot.has(other.id);
+
     if (txn.iso !== ISO.READ_COMMITTED) {
       for (const key of txn.writes) {
         for (const other of this._db.txns.values()) {
-          if (other.id === txn.id || other.status !== TXN.COMMITTED) continue;
-          if (!other.writes.has(key)) continue;
-          if (!txn.snapshot.has(other.id)) {
+          if (concurrentCommitted(other) && other.writes.has(key)) {
+            this.abort();
+            throw new SerializationError(key);
+          }
+        }
+      }
+    }
+    if (txn.iso === ISO.SERIALIZABLE) {
+      for (const key of txn.reads) {
+        for (const other of this._db.txns.values()) {
+          if (concurrentCommitted(other) && other.writes.has(key)) {
             this.abort();
             throw new SerializationError(key);
           }
