@@ -81,3 +81,26 @@ test('snapshot getter reflects the frozen begin horizon', () => {
   const t3 = db.begin(ISO.REPEATABLE_READ);
   assert.ok(!t3.snapshot.includes(t2.id), 'a still-active peer is not');
 });
+
+test('resolve reports a hidden newer committed version under a frozen snapshot', () => {
+  const db = new Database({ x: 1 });
+  const rr = db.begin(ISO.REPEATABLE_READ); // freezes here
+  const w = db.begin(ISO.READ_COMMITTED);
+  w.write('x', 2);
+  w.commit();
+
+  const seen = rr.resolve('x');
+  assert.equal(seen.version.value, 1, 'RR still resolves the pre-snapshot value');
+  assert.equal(seen.hiddenNewerCommitted, true, 'a newer committed version is hidden');
+
+  const rc = db.begin(ISO.READ_COMMITTED);
+  const fresh = rc.resolve('x');
+  assert.equal(fresh.version.value, 2, 'RC resolves the latest committed value');
+  assert.equal(fresh.hiddenNewerCommitted, false, 'nothing is hidden from RC');
+});
+
+test('resolve on an unknown key returns a null version', () => {
+  const db = new Database({ x: 1 });
+  const t = db.begin(ISO.READ_COMMITTED);
+  assert.deepEqual(t.resolve('nope'), { version: null, hiddenNewerCommitted: false });
+});
