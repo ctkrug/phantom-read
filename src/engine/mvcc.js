@@ -1,0 +1,222 @@
+// A small multi-version concurrency control (MVCC) engine.
+//
+// The model mirrors how a real database resolves reads: every row keeps a chain
+// of *versions*, each stamped with the transaction that created it (`xmin`) and
+// the transaction that superseded or deleted it (`xmax`). A read never mutates
+// data — it walks the chain and returns the first version *visible* under the
+// reader's snapshot. Isolation levels differ only in how that snapshot is
+// chosen, which is exactly where dirty reads, phantom reads, and write skew come
+// from.
+//
+// This module is pure and dependency-free so it runs identically in the browser
+// UI and under the Node test runner.
+
+export const ISO = Object.freeze({
+  READ_COMMITTED: 'read-committed',
+  REPEATABLE_READ: 'repeatable-read',
+  SERIALIZABLE: 'serializable',
+});
+
+export const TXN = Object.freeze({
+  ACTIVE: 'active',
+  COMMITTED: 'committed',
+  ABORTED: 'aborted',
+});
+
+/** Raised when a serializable/repeatable-read commit loses a write conflict. */
+export class SerializationError extends Error {
+  constructor(key) {
+    super(`could not serialize access due to concurrent update of "${key}"`);
+    this.name = 'SerializationError';
+    this.key = key;
+  }
+}
+
+// The bootstrap transaction that owns all seeded rows. Always committed and
+// visible to every snapshot.
+const SYSTEM_TXID = 0;
+
+let VERSION_SEQ = 1;
+
+export class Database {
+  /**
+   * @param {Object<string, any>} [seed] initial committed rows, keyed by id.
+   */
+  constructor(seed = {}) {
+    /** @type {Map<string, Array<{id:number,value:any,xmin:number,xmax:(number|null)}>>} */
+    this.rows = new Map();
+    /** @type {Map<number, object>} */
+    this.txns = new Map();
+    this.txns.set(SYSTEM_TXID, {
+      id: SYSTEM_TXID,
+      iso: ISO.SERIALIZABLE,
+      status: TXN.COMMITTED,
+      commitSeq: 0,
+      writes: new Set(),
+    });
+    this._nextTxid = 1;
+    this._commitSeq = 1;
+    for (const [key, value] of Object.entries(seed)) {
+      this.rows.set(key, [{ id: VERSION_SEQ++, value, xmin: SYSTEM_TXID, xmax: null }]);
+    }
+  }
+
+  /** Begin a transaction and capture its snapshot. */
+  begin(iso = ISO.READ_COMMITTED) {
+    const id = this._nextTxid++;
+    const snapshot = new Set();
+    for (const t of this.txns.values()) {
+      if (t.status === TXN.COMMITTED) snapshot.add(t.id);
+    }
+    const txn = {
+      id,
+      iso,
+      status: TXN.ACTIVE,
+      commitSeq: null,
+      snapshot, // committed txn ids as of begin — the frozen horizon for RR/SER
+      writes: new Set(),
+      reads: new Set(),
+    };
+    this.txns.set(id, txn);
+    return new Transaction(this, txn);
+  }
+
+  _committedVisible(creatorId, txn) {
+    const c = this.txns.get(creatorId);
+    if (!c || c.status !== TXN.COMMITTED) return false;
+    if (creatorId === SYSTEM_TXID) return true;
+    // Read Committed takes a fresh snapshot per statement, so any committed txn
+    // is visible. Repeatable Read / Serializable freeze the snapshot at begin.
+    if (txn.iso === ISO.READ_COMMITTED) return true;
+    return txn.snapshot.has(creatorId);
+  }
+
+  _isVisible(version, txn) {
+    const createdBySelf = version.xmin === txn.id;
+    const createdVisible = createdBySelf || this._committedVisible(version.xmin, txn);
+    if (!createdVisible) return false;
+    if (version.xmax == null) return true;
+    // The row was deleted/superseded. It stays visible unless that deletion is
+    // visible to us too.
+    if (version.xmax === txn.id) return false; // we deleted it ourselves
+    return !this._committedVisible(version.xmax, txn);
+  }
+}
+
+export class Transaction {
+  constructor(db, txn) {
+    this._db = db;
+    this._txn = txn;
+  }
+
+  get id() {
+    return this._txn.id;
+  }
+  get iso() {
+    return this._txn.iso;
+  }
+  get status() {
+    return this._txn.status;
+  }
+
+  _assertActive() {
+    if (this._txn.status !== TXN.ACTIVE) {
+      throw new Error(`transaction ${this._txn.id} is ${this._txn.status}`);
+    }
+  }
+
+  /** Return the visible value for `key`, or undefined if no row is visible. */
+  read(key) {
+    this._assertActive();
+    this._txn.reads.add(key);
+    const chain = this._db.rows.get(key);
+    if (!chain) return undefined;
+    for (let i = chain.length - 1; i >= 0; i--) {
+      if (this._db._isVisible(chain[i], this._txn)) return chain[i].value;
+    }
+    return undefined;
+  }
+
+  /** Return all keys whose visible row satisfies `predicate(value, key)`. */
+  scan(predicate = () => true) {
+    this._assertActive();
+    const out = [];
+    for (const key of this._db.rows.keys()) {
+      const value = this.read(key);
+      if (value !== undefined && predicate(value, key)) out.push({ key, value });
+    }
+    return out;
+  }
+
+  /** Insert or update `key`. Creates a new version and closes the prior one. */
+  write(key, value) {
+    this._assertActive();
+    const chain = this._db.rows.get(key) || [];
+    for (let i = chain.length - 1; i >= 0; i--) {
+      if (this._db._isVisible(chain[i], this._txn)) {
+        chain[i].xmax = this._txn.id;
+        break;
+      }
+    }
+    chain.push({ id: VERSION_SEQ++, value, xmin: this._txn.id, xmax: null });
+    this._db.rows.set(key, chain);
+    this._txn.writes.add(key);
+    return this;
+  }
+
+  /** Delete the visible row for `key`, if any. */
+  remove(key) {
+    this._assertActive();
+    const chain = this._db.rows.get(key);
+    if (chain) {
+      for (let i = chain.length - 1; i >= 0; i--) {
+        if (this._db._isVisible(chain[i], this._txn)) {
+          chain[i].xmax = this._txn.id;
+          break;
+        }
+      }
+    }
+    this._txn.writes.add(key);
+    return this;
+  }
+
+  /**
+   * Commit. Repeatable Read and Serializable enforce first-updater-wins: if a
+   * concurrent transaction committed a write to one of our keys after we began,
+   * we lose and abort with a SerializationError.
+   */
+  commit() {
+    this._assertActive();
+    const txn = this._txn;
+    if (txn.iso !== ISO.READ_COMMITTED) {
+      for (const key of txn.writes) {
+        for (const other of this._db.txns.values()) {
+          if (other.id === txn.id || other.status !== TXN.COMMITTED) continue;
+          if (!other.writes.has(key)) continue;
+          if (!txn.snapshot.has(other.id)) {
+            this.abort();
+            throw new SerializationError(key);
+          }
+        }
+      }
+    }
+    txn.status = TXN.COMMITTED;
+    txn.commitSeq = this._db._commitSeq++;
+    return this;
+  }
+
+  /** Roll back: undo every version this transaction created. */
+  abort() {
+    if (this._txn.status !== TXN.ACTIVE) return this;
+    const txn = this._txn;
+    for (const [key, chain] of this._db.rows) {
+      const kept = chain.filter((v) => v.xmin !== txn.id);
+      for (const v of kept) {
+        if (v.xmax === txn.id) v.xmax = null; // revive rows we tried to delete
+      }
+      this._db.rows.set(key, kept);
+    }
+    txn.status = TXN.ABORTED;
+    return this;
+  }
+}
