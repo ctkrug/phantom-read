@@ -88,6 +88,24 @@ test('aborting a losing writer restores the version it superseded', () => {
   assert.equal(db.committedValue('counter'), 110);
 });
 
+test('aborting a losing delete restores the version it superseded', () => {
+  // Same hazard as a losing write, via remove(): a frozen-snapshot delete
+  // re-closes a version already superseded by a committed peer, then aborts.
+  const db = new Database({ x: 1 });
+  const t1 = db.begin(ISO.REPEATABLE_READ);
+  const t2 = db.begin(ISO.REPEATABLE_READ);
+  t1.read('x');
+  t2.read('x');
+  t1.write('x', 2);
+  t1.commit();
+  t2.remove('x');
+  assert.throws(() => t2.commit(), SerializationError);
+
+  const live = db.versionsOf('x').filter((v) => v.xmax == null);
+  assert.deepEqual(live.map((v) => v.value), [2], 'the committed value survives the aborted delete');
+  assert.equal(db.committedValue('x'), 2);
+});
+
 test('serializable aborts the loser of a concurrent write conflict', () => {
   const db = new Database({ x: 1 });
   const t1 = db.begin(ISO.SERIALIZABLE);
