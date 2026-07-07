@@ -113,6 +113,13 @@ export function createApp(roots, opts = {}) {
     renderAll();
   }
 
+  // Jump straight to a cursor position (Home/End) without playing the steps.
+  function seekTo(index) {
+    stopPlaying();
+    state.stepper.seek(index);
+    renderAll();
+  }
+
   function togglePlay() {
     if (state.playing) return stopPlaying(), renderAll();
     if (state.stepper.atEnd) state.stepper.reset();
@@ -477,6 +484,10 @@ export function createApp(roots, opts = {}) {
         e.preventDefault(); stepForward(); break;
       case 'ArrowLeft':
         e.preventDefault(); stepBack(); break;
+      case 'Home':
+        e.preventDefault(); seekTo(0); break;
+      case 'End':
+        e.preventDefault(); seekTo(state.stepper.length); break;
       case ' ':
         if (onButton) return; // let the focused button handle its own activation
         e.preventDefault(); stepForward(); break;

@@ -63,9 +63,9 @@ scenario.
 2. **Set each transaction's isolation level** with the RC/RR/SER pills. T1 is
    cyan, T2 is coral.
 3. **Step** through with the transport (or the keyboard: `←`/`→`/`space` to step,
-   `P` to play, `R` to reset, `M` to mute). Each step runs exactly one action on
-   the engine and updates the shared table, the version chains, and the snapshot
-   inspector.
+   `Home`/`End` to jump to the start or the anomaly, `P` to play, `R` to reset,
+   `M` to mute). Each step runs exactly one action on the engine and updates the
+   shared table, the version chains, and the snapshot inspector.
 4. **Watch the flare.** When an anomaly fires, the offending row flares coral and
    a callout names it. Raise the level and replay — the same script now stays
    calm, or the database aborts the losing commit and celebrates.
