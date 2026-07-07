@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build / coverage output
+dist/
+coverage/
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-error.log*
+*.log
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
