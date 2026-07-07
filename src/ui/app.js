@@ -352,7 +352,39 @@ export function createApp(roots, opts = {}) {
     panel.append(
       el('p', { class: 'explain', text: frame.explain || 'Press Step to run the first action.' }),
     );
+    panel.append(el('h3', { class: 'panel__title', text: 'Snapshot inspector' }));
+    panel.append(renderInspector(frame));
     return panel;
+  }
+
+  function renderInspector(frame) {
+    const box = el('div', { class: 'inspector' });
+    let any = false;
+    for (const actor of ['T1', 'T2']) {
+      const view = frame.txns[actor];
+      if (!view.started) continue;
+      any = true;
+      const rc = view.iso === ISO.READ_COMMITTED;
+      const visible = (view.snapshot || []).filter((id) => id !== 0);
+      const snapText = rc
+        ? 'refreshes every statement — sees any committed txn'
+        : visible.length
+          ? `frozen: sees committed {${visible.join(', ')}}`
+          : 'frozen at begin: no concurrent commits visible';
+      box.append(
+        el('div', { class: `insp insp--${actor.toLowerCase()}` },
+          el('div', { class: 'insp__head' },
+            el('span', { class: 'insp__name', text: `${actor} · T#${view.id}` }),
+            el('span', { class: `badge badge--${view.status}`, text: view.status }),
+          ),
+          el('div', { class: 'insp__row', text: `${isoLabel(view.iso)} — ${snapText}` }),
+          el('div', { class: 'insp__row insp__row--dim',
+            text: `read {${view.reads.join(', ') || '—'}}  ·  wrote {${view.writes.join(', ') || '—'}}` }),
+        ),
+      );
+    }
+    if (!any) box.append(el('p', { class: 'insp__empty', text: 'No transactions have begun yet.' }));
+    return box;
   }
 
   function syncMute() {
