@@ -234,3 +234,19 @@ test('createApp honours an initial scenarioId', async () => {
   const app = createApp(roots, { keyboard: false, scenarioId: 'write-skew' });
   assert.equal(app.state.scenario.id, 'write-skew');
 });
+
+test('a deep-linked scenarioId in the roots is honoured (boot wiring)', async () => {
+  // The boot passes the hash-derived scenarioId alongside the DOM roots. This
+  // guards initial deep-linking: loading #write-skew must open write-skew, not
+  // fall back to the first scenario.
+  globalThis.document = fakeDocument();
+  const { createApp } = await import('../src/ui/app.js');
+  const roots = {
+    rail: new FakeNode('aside'), stage: new FakeNode('section'),
+    panel: new FakeNode('aside'), callout: new FakeNode('div'), mute: new FakeNode('button'),
+    scenarioId: 'write-skew',
+  };
+  roots.mute.append(new FakeNode('span'));
+  const app = createApp(roots, { keyboard: false });
+  assert.equal(app.state.scenario.id, 'write-skew');
+});
