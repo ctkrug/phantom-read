@@ -162,6 +162,31 @@ test('scenarioIdFromHash accepts known ids and rejects junk', async () => {
   assert.equal(scenarioIdFromHash(undefined), null);
 });
 
+test('mashing the controls past the boundaries never escapes the valid range', async () => {
+  const fakeSound = { play() {}, resume() {}, toggleMute() {}, get muted() { return false; } };
+  const { app } = await mount({ keyboard: false, sound: fakeSound });
+  const len = app.state.stepper.length;
+  for (let i = 0; i < 50; i++) app.stepForward();
+  assert.equal(app.state.stepper.cursor, len, 'cannot step past the end');
+  for (let i = 0; i < 50; i++) app.stepBack();
+  assert.equal(app.state.stepper.cursor, 0, 'cannot step before the start');
+  // Rapidly toggle play; it must never leave more than one live timer or wedge.
+  const realSetTimeout = globalThis.setTimeout;
+  const realClearTimeout = globalThis.clearTimeout;
+  let live = 0;
+  globalThis.setTimeout = () => { live += 1; return live; };
+  globalThis.clearTimeout = () => { live = Math.max(0, live - 1); };
+  try {
+    for (let i = 0; i < 10; i++) app.togglePlay();
+    assert.ok(live <= 1, `at most one pending timer, saw ${live}`);
+    app.reset();
+    assert.equal(app.state.playing, false, 'reset stops playback');
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    globalThis.clearTimeout = realClearTimeout;
+  }
+});
+
 test('the live region narrates each step and the final verdict', async () => {
   const { app, roots } = await mount();
   app.pickScenario('write-skew');
