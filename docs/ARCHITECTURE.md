@@ -37,7 +37,7 @@ scenarios.js  ──(seed + scripted steps)──▶  stepper.js  ──(frames)
 | `src/ui/app.js` | Controller + renderers (rail, timeline stage, panel, callout) and a tiny `el()` DOM helper. Keyboard driving and hash deep-linking. |
 | `src/ui/sound.js` | `SoundBoard`: WebAudio-synthesised SFX, lazy context, throttle, persisted mute. Injectable deps for headless tests. |
 | `src/ui/styles.css` | The blueprint direction (see `docs/DESIGN.md`) for both app and landing band. |
-| `index.html` | Shell: masthead + mute, landing band, three app regions, callout, favicon. |
+| `index.html` | Shell: masthead + mute, landing band, three app regions, callout, favicon, and a visually-hidden `#live` region for screen-reader step narration. |
 | `scripts/serve.js` | Zero-dependency static dev server (`npm start`). |
 
 ## The three UI regions
@@ -48,7 +48,8 @@ scenarios.js  ──(seed + scripted steps)──▶  stepper.js  ──(frames)
   shared table with live version chains and the anomaly flare.
 - **Panel** (`#panel`) — the per-step explanation and the snapshot inspector.
 
-The **callout** (`#callout`) overlays the anomaly/prevention moment with a CTA.
+The **callout** (`#callout`) overlays the anomaly/prevention moment with a CTA,
+and a visually-hidden `#live` region announces each step to assistive tech.
 
 ## Engine invariants (don't regress)
 
@@ -56,11 +57,16 @@ The **callout** (`#callout`) overlays the anomaly/prevention moment with a CTA.
 - RR/SER freeze the snapshot at `begin`; RC re-reads per statement.
 - Commit checks: first-updater-wins (RR+SER) catches lost update; read-write
   antidependency (SER only) catches write skew. See `docs/ENGINE.md`.
+- Version ids are per-`Database` (numbered from 1); abort restores a superseded
+  version's prior `xmax`, so a chain holds ≤1 live committed version at rest.
+- The engine models commit-time conflict detection, **not** row write-locks; see
+  `docs/ENGINE.md` for the concurrency boundary the property fuzz stays within.
 
 ## Run & test
 
-- **Test:** `npm test` (or `node --test`) — pure logic + a headless DOM smoke
-  test, no browser or network.
+- **Test:** `npm test` (or `node --test`) — pure engine specs, property-based
+  fuzzing (`test/mvcc.property.test.js`), and a headless DOM smoke test that
+  mounts the real controller. No browser or network.
 - **Lint:** `npm run lint` (syntax check of the engine modules).
 - **Serve:** `npm start` → http://localhost:5173. Static and base-path-relative,
   so it also hosts unchanged under a subpath.
