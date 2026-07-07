@@ -142,6 +142,23 @@ test('the shared table renders version chains with xmin/xmax stamps', async () =
   assert.match(allText(roots.stage), /999/, 'the new version value shows');
 });
 
+test('scenario pills expose the active one with aria-pressed', async () => {
+  const { app, roots } = await mount();
+  const pills = (node, out = []) => {
+    for (const c of node.children || []) {
+      if (c._class && c._class.split(/\s+/).includes('pill')) out.push(c);
+      pills(c, out);
+    }
+    return out;
+  };
+  app.pickScenario('write-skew');
+  const found = pills(roots.rail);
+  assert.equal(found.length, 4, 'one pill per scenario');
+  const pressed = found.filter((p) => p.getAttribute('aria-pressed') === 'true');
+  assert.equal(pressed.length, 1, 'exactly one pill is pressed');
+  assert.match(pressed[0].textContent, /Write skew/, 'the active scenario is the pressed one');
+});
+
 test('picking a scenario re-arms the timeline to the start', async () => {
   const { app } = await mount();
   app.stepForward();
