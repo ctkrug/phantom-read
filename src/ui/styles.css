@@ -1,8 +1,6 @@
-/* Phantom Read — scaffold styling.
-   Follows docs/DESIGN.md: an architectural-blueprint direction. Prussian
-   drafting paper, a fine cyan grid, white ink linework, mono annotations, and a
-   coral "anomaly" accent. The full UI treatment lands in the BUILD runs; this is
-   enough to make the scaffold read as intentional, not a stub. */
+/* Phantom Read — architectural-blueprint direction (see docs/DESIGN.md).
+   Prussian drafting paper, a fine cyan grid, mono annotations, and a coral
+   anomaly accent. Product and landing page share these tokens. */
 
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
@@ -10,19 +8,30 @@
   --paper: #0d1b2a;
   --paper-2: #12253a;
   --surface: #16304a;
+  --surface-line: rgba(120, 190, 230, 0.18);
+  --grid: rgba(120, 190, 230, 0.09);
   --ink: #eaf2ff;
   --muted: #8fb0cf;
-  --grid: rgba(120, 190, 230, 0.09);
   --cyan: #58c4dc;
+  --cyan-deep: #2f8fb0;
   --coral: #ff6b57;
+  --amber: #ffcf6b;
   --unit: 8px;
   --radius: 10px;
+  --radius-chip: 6px;
   --display: 'Space Grotesk', system-ui, sans-serif;
-  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+  --shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.8);
+  --inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
@@ -34,15 +43,25 @@ body {
   background-image:
     linear-gradient(var(--grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid) 1px, transparent 1px),
-    radial-gradient(circle at 30% 0%, #163050 0%, var(--paper) 60%);
+    radial-gradient(ellipse 90% 60% at 28% -10%, #1b3a5c 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 100% 110%, #10283f 0%, transparent 55%);
   background-size:
     28px 28px,
     28px 28px,
+    100% 100%,
     100% 100%;
+  background-attachment: fixed;
 }
 
+/* ---- masthead ---- */
+
 .masthead {
-  padding: calc(var(--unit) * 6) calc(var(--unit) * 3) calc(var(--unit) * 3);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--unit);
+  padding: calc(var(--unit) * 5) calc(var(--unit) * 3) calc(var(--unit) * 2);
   text-align: center;
 }
 
@@ -59,7 +78,13 @@ body {
 .wordmark__glyph {
   color: var(--coral);
   font-size: 0.8em;
-  filter: drop-shadow(0 0 10px rgba(255, 107, 87, 0.5));
+  filter: drop-shadow(0 0 12px rgba(255, 107, 87, 0.5));
+  animation: pulse-glyph 4s var(--ease) infinite;
+}
+
+@keyframes pulse-glyph {
+  0%, 100% { opacity: 0.85; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
 }
 
 .wordmark__accent {
@@ -67,106 +92,82 @@ body {
 }
 
 .tagline {
-  margin: calc(var(--unit) * 1.5) 0 0;
+  margin: 0;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
 }
 
+.mute {
+  position: absolute;
+  top: calc(var(--unit) * 3);
+  right: calc(var(--unit) * 3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5ch;
+  min-height: 40px;
+  padding: 0 calc(var(--unit) * 1.5);
+  color: var(--cyan);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-chip);
+  box-shadow: var(--inset);
+  cursor: pointer;
+  transition: border-color 160ms var(--ease), color 160ms var(--ease), transform 120ms var(--ease);
+}
+
+.mute:hover { border-color: var(--cyan); }
+.mute:active { transform: translateY(1px); }
+.mute:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.mute--off { color: var(--muted); }
+.mute--off .mute__icon { text-decoration: line-through; }
+
+/* ---- three-region layout ---- */
+
 .app {
-  max-width: 1100px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: calc(var(--unit) * 2) calc(var(--unit) * 3) calc(var(--unit) * 8);
   display: grid;
   gap: calc(var(--unit) * 3);
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: 300px minmax(0, 1fr) 320px;
+  align-items: start;
 }
 
-.boot {
-  color: var(--muted);
+.rail, .panel {
+  position: sticky;
+  top: var(--unit);
 }
 
-.scenario {
-  background: linear-gradient(180deg, var(--paper-2), var(--surface));
-  border: 1px solid rgba(120, 190, 230, 0.18);
-  border-radius: var(--radius);
-  padding: calc(var(--unit) * 3);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 18px 40px -24px rgba(0, 0, 0, 0.8);
-}
-
-.scenario__title {
-  font-family: var(--display);
-  margin: 0 0 var(--unit);
-  font-size: 1.3rem;
-}
-
-.scenario__blurb {
-  color: var(--muted);
-  font-size: 0.85rem;
-  line-height: 1.5;
-  margin: 0 0 calc(var(--unit) * 2);
-}
-
-.scenario__level {
-  font-size: 0.8rem;
-  color: var(--cyan);
-  margin-bottom: calc(var(--unit) * 1.5);
-}
-
-.trace {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 6px;
-}
-
-.trace__step {
-  display: grid;
-  grid-template-columns: 2.6ch 1fr auto;
-  gap: var(--unit);
-  align-items: baseline;
-  font-size: 0.78rem;
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.18);
-}
-
-.trace__actor {
-  font-weight: 500;
-  color: var(--paper);
-  text-align: center;
-  border-radius: 4px;
-}
-
-.trace__actor--t1 {
-  background: var(--cyan);
-}
-.trace__actor--t2 {
-  background: var(--coral);
-}
-
-.trace__note {
-  color: var(--ink);
-}
-
-.trace__result {
-  color: var(--muted);
-  white-space: nowrap;
+@media (max-width: 1100px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rail, .panel {
+    position: static;
+  }
 }
 
 .colophon {
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: calc(var(--unit) * 2);
   color: var(--muted);
   font-size: 0.75rem;
   padding: calc(var(--unit) * 3);
   border-top: 1px solid rgba(120, 190, 230, 0.12);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation: none !important;
-    transition: none !important;
-  }
+.colophon__link {
+  color: var(--cyan);
+  text-decoration: none;
+}
+.colophon__link:hover { text-decoration: underline; }
+
+.noscript {
+  text-align: center;
+  color: var(--coral);
+  padding: var(--unit);
 }
