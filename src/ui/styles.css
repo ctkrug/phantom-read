@@ -267,7 +267,7 @@ body {
 .seg--t2 .seg__label { color: var(--coral); }
 
 .seg__opt {
-  min-height: 36px;
+  min-height: 44px;
   font-family: var(--mono);
   font-size: 0.74rem;
   color: var(--muted);
