@@ -102,6 +102,14 @@ export class Database {
     return !this._committedVisible(version.xmax, txn);
   }
 
+  /** Newest visible version in a chain for `txn`, or null. */
+  _resolveVisible(chain, txn) {
+    for (let i = chain.length - 1; i >= 0; i--) {
+      if (this._isVisible(chain[i], txn)) return chain[i];
+    }
+    return null;
+  }
+
   /**
    * The value an outside observer would see right now: the newest version whose
    * creator is committed and whose deletion (if any) is not committed. Used by
@@ -183,10 +191,32 @@ export class Transaction {
   peek(key) {
     const chain = this._db.rows.get(key);
     if (!chain) return undefined;
-    for (let i = chain.length - 1; i >= 0; i--) {
-      if (this._db._isVisible(chain[i], this._txn)) return chain[i].value;
+    const v = this._db._resolveVisible(chain, this._txn);
+    return v ? v.value : undefined;
+  }
+
+  /**
+   * Explain a read without recording it: the version that resolves and whether a
+   * *newer committed* version exists that this transaction cannot see. The latter
+   * is the signature of a frozen snapshot — the "why" behind a repeatable read.
+   * @returns {{version:(object|null), hiddenNewerCommitted:boolean}}
+   */
+  resolve(key) {
+    const chain = this._db.rows.get(key);
+    if (!chain) return { version: null, hiddenNewerCommitted: false };
+    const v = this._db._resolveVisible(chain, this._txn);
+    let hiddenNewerCommitted = false;
+    const from = v ? chain.indexOf(v) + 1 : 0;
+    for (let i = from; i < chain.length; i++) {
+      const nv = chain[i];
+      if (nv.xmin === this._txn.id) continue;
+      const creator = this._db.txns.get(nv.xmin);
+      if (creator && creator.status === TXN.COMMITTED) {
+        hiddenNewerCommitted = true;
+        break;
+      }
     }
-    return undefined;
+    return { version: v ? { ...v } : null, hiddenNewerCommitted };
   }
 
   _assertActive() {
