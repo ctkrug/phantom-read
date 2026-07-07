@@ -142,6 +142,60 @@ export function createApp(roots, opts = {}) {
     roots.rail.replaceChildren(renderRail());
     roots.stage.replaceChildren(renderStage());
     roots.panel.replaceChildren(renderPanel());
+    renderCallout();
+  }
+
+  function renderCallout() {
+    const box = roots.callout;
+    if (!box) return;
+    const st = state.stepper;
+    if (!st.flaring) {
+      box.hidden = true;
+      box.replaceChildren();
+      return;
+    }
+    const { outcome } = st;
+    const prevented = st.flare.prevented;
+    box.hidden = false;
+    box.className = `callout callout--show callout--${prevented ? 'safe' : 'anomaly'}`;
+    const cta = el('div', { class: 'callout__cta' },
+      el('button', { class: 'cbtn cbtn--primary', type: 'button', onClick: reset }, '↻ Replay'),
+      renderContrastCta(prevented),
+    );
+    box.replaceChildren(
+      el('div', { class: 'callout__card' },
+        el('span', { class: 'callout__tag', text: prevented ? 'PREVENTED' : 'ANOMALY' }),
+        el('h2', { class: 'callout__title', text: outcome.title }),
+        el('p', { class: 'callout__detail', text: outcome.detail }),
+        cta,
+      ),
+      prevented ? renderConfetti() : null,
+    );
+  }
+
+  // The contrast CTA turns the wow moment into a two-click comparison: after the
+  // anomaly fires, raise both lanes to the preventing level; after prevention,
+  // drop back to see it break.
+  function renderContrastCta(prevented) {
+    const s = state.scenario;
+    if (prevented) {
+      return el('button', {
+        class: 'cbtn', type: 'button',
+        onClick: () => { state.stepper.setLevels({ T1: s.defaultIso, T2: s.defaultIso }); renderAll(); },
+      }, `↓ See it break at ${isoLabel(s.defaultIso)}`);
+    }
+    return el('button', {
+      class: 'cbtn', type: 'button',
+      onClick: () => { state.stepper.setLevels({ T1: s.preventedAtOrAbove, T2: s.preventedAtOrAbove }); renderAll(); },
+    }, `↑ Prevent it at ${isoLabel(s.preventedAtOrAbove)}`);
+  }
+
+  function renderConfetti() {
+    const wrap = el('div', { class: 'confetti', aria: { hidden: 'true' } });
+    for (let i = 0; i < 14; i++) {
+      wrap.append(el('span', { class: 'confetti__bit', style: `--i:${i}` }));
+    }
+    return wrap;
   }
 
   function renderRail() {
@@ -413,7 +467,8 @@ if (typeof document !== 'undefined') {
   const stage = document.getElementById('stage');
   const panel = document.getElementById('panel');
   const mute = document.getElementById('mute');
+  const callout = document.getElementById('callout');
   if (rail && stage && panel) {
-    createApp({ rail, stage, panel, mute });
+    createApp({ rail, stage, panel, mute, callout });
   }
 }
