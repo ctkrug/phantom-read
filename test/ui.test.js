@@ -143,3 +143,25 @@ test('picking a scenario re-arms the timeline to the start', async () => {
   assert.equal(app.state.stepper.cursor, 0, 'a new scenario starts fresh');
   assert.equal(app.state.scenario.id, 'phantom-read');
 });
+
+test('scenarioIdFromHash accepts known ids and rejects junk', async () => {
+  globalThis.document = fakeDocument();
+  const { scenarioIdFromHash } = await import('../src/ui/app.js');
+  assert.equal(scenarioIdFromHash('#write-skew'), 'write-skew');
+  assert.equal(scenarioIdFromHash('phantom-read'), 'phantom-read');
+  assert.equal(scenarioIdFromHash('#nope'), null);
+  assert.equal(scenarioIdFromHash(''), null);
+  assert.equal(scenarioIdFromHash(undefined), null);
+});
+
+test('createApp honours an initial scenarioId', async () => {
+  globalThis.document = fakeDocument();
+  const { createApp } = await import('../src/ui/app.js');
+  const roots = {
+    rail: new FakeNode('aside'), stage: new FakeNode('section'),
+    panel: new FakeNode('aside'), callout: new FakeNode('div'), mute: new FakeNode('button'),
+  };
+  roots.mute.append(new FakeNode('span'));
+  const app = createApp(roots, { keyboard: false, scenarioId: 'write-skew' });
+  assert.equal(app.state.scenario.id, 'write-skew');
+});

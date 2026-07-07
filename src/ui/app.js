@@ -57,7 +57,8 @@ export function createApp(roots, opts = {}) {
     playing: false,
     playTimer: null,
   };
-  arm(SCENARIOS[0]);
+  const initial = SCENARIOS.find((s) => s.id === opts.scenarioId) || SCENARIOS[0];
+  arm(initial);
 
   function arm(scenario) {
     state.scenario = scenario;
@@ -487,6 +488,12 @@ export function createApp(roots, opts = {}) {
 
 // ---- boot -------------------------------------------------------------------
 
+/** Parse a scenario id from a URL hash like "#write-skew". */
+export function scenarioIdFromHash(hash) {
+  const id = (hash || '').replace(/^#/, '').trim();
+  return SCENARIOS.some((s) => s.id === id) ? id : null;
+}
+
 if (typeof document !== 'undefined') {
   const rail = document.getElementById('rail');
   const stage = document.getElementById('stage');
@@ -494,6 +501,22 @@ if (typeof document !== 'undefined') {
   const mute = document.getElementById('mute');
   const callout = document.getElementById('callout');
   if (rail && stage && panel) {
-    createApp({ rail, stage, panel, mute, callout });
+    const scenarioId = scenarioIdFromHash(location.hash);
+    const app = createApp({ rail, stage, panel, mute, callout, scenarioId });
+
+    // Landing CTAs and back/forward navigation deep-link into a scenario.
+    window.addEventListener('hashchange', () => {
+      const id = scenarioIdFromHash(location.hash);
+      if (id) app.pickScenario(id);
+    });
+    document.querySelectorAll('[data-scenario]').forEach((node) => {
+      node.addEventListener('click', () => {
+        const id = node.getAttribute('data-scenario');
+        if (scenarioIdFromHash('#' + id)) {
+          app.pickScenario(id);
+          stage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
   }
 }
