@@ -57,7 +57,10 @@ export function createApp(roots, opts = {}) {
     playing: false,
     playTimer: null,
   };
-  const initial = SCENARIOS.find((s) => s.id === opts.scenarioId) || SCENARIOS[0];
+  // Accept the deep-link id from either opts or the roots bag: the boot threads
+  // the hash-derived id in alongside the DOM roots.
+  const scenarioId = opts.scenarioId ?? roots.scenarioId;
+  const initial = SCENARIOS.find((s) => s.id === scenarioId) || SCENARIOS[0];
   arm(initial);
 
   function arm(scenario) {
@@ -144,6 +147,18 @@ export function createApp(roots, opts = {}) {
     roots.stage.replaceChildren(renderStage());
     roots.panel.replaceChildren(renderPanel());
     renderCallout();
+    updateLive();
+  }
+
+  // A persistent live region narrates each step for screen-reader users: the
+  // step count, what the action did, and the anomaly verdict once it flares.
+  function updateLive() {
+    if (!roots.live) return;
+    const st = state.stepper;
+    const base = st.frame.explain || 'Ready — step or press the right arrow to run the first action.';
+    let msg = `Step ${st.cursor} of ${st.length}. ${base}`;
+    if (st.flaring && st.atEnd) msg += ` ${st.outcome.title}: ${st.outcome.detail}`;
+    roots.live.textContent = msg;
   }
 
   function renderCallout() {
@@ -500,9 +515,10 @@ if (typeof document !== 'undefined') {
   const panel = document.getElementById('panel');
   const mute = document.getElementById('mute');
   const callout = document.getElementById('callout');
+  const live = document.getElementById('live');
   if (rail && stage && panel) {
     const scenarioId = scenarioIdFromHash(location.hash);
-    const app = createApp({ rail, stage, panel, mute, callout, scenarioId });
+    const app = createApp({ rail, stage, panel, mute, callout, live, scenarioId });
 
     // Landing CTAs and back/forward navigation deep-link into a scenario.
     window.addEventListener('hashchange', () => {
