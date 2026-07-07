@@ -39,6 +39,7 @@ scenarios.js  ──(seed + scripted steps)──▶  stepper.js  ──(frames)
 | `src/ui/styles.css` | The blueprint direction (see `docs/DESIGN.md`) for both app and landing band. |
 | `index.html` | Shell: masthead + mute, landing band, three app regions, callout, favicon, and a visually-hidden `#live` region for screen-reader step narration. |
 | `scripts/serve.js` | Zero-dependency static dev server (`npm start`). |
+| `scripts/build.js` | Assembles the deployable static output into `site/` (`npm run build`). |
 
 ## The three UI regions
 
