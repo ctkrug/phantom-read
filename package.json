@@ -1,0 +1,24 @@
+{
+  "name": "phantom-read",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An interactive sandbox for database isolation levels: run two transactions, pick isolation levels, and watch dirty reads, phantom reads, and write skew happen step by step.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "start": "node scripts/serve.js",
+    "lint": "node --check src/engine/mvcc.js && node --check src/engine/scenarios.js"
+  },
+  "keywords": [
+    "database",
+    "mvcc",
+    "isolation-levels",
+    "transactions",
+    "visualization"
+  ],
+  "author": "Charlie Krug",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
