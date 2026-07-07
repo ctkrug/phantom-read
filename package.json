@@ -1,6 +1,6 @@
 {
   "name": "phantom-read",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "An interactive sandbox for database isolation levels: run two transactions, pick isolation levels, and watch dirty reads, phantom reads, and write skew happen step by step.",
   "type": "module",
