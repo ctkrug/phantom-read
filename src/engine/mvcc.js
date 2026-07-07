@@ -248,16 +248,27 @@ export class Transaction {
     return out;
   }
 
-  /** Insert or update `key`. Creates a new version and closes the prior one. */
-  write(key, value) {
-    this._assertActive();
-    const chain = this._db.rows.get(key) || [];
+  /**
+   * Close the visible version by stamping our id on its `xmax`. Under a frozen
+   * snapshot the version we can see may already have been superseded by a
+   * concurrent committed transaction; remember that prior `xmax` so an abort can
+   * restore it rather than reviving a version that is not really live.
+   */
+  _closeVisible(chain) {
     for (let i = chain.length - 1; i >= 0; i--) {
       if (this._db._isVisible(chain[i], this._txn)) {
+        chain[i].priorXmax = chain[i].xmax;
         chain[i].xmax = this._txn.id;
         break;
       }
     }
+  }
+
+  /** Insert or update `key`. Creates a new version and closes the prior one. */
+  write(key, value) {
+    this._assertActive();
+    const chain = this._db.rows.get(key) || [];
+    this._closeVisible(chain);
     chain.push({ id: VERSION_SEQ++, value, xmin: this._txn.id, xmax: null });
     this._db.rows.set(key, chain);
     this._txn.writes.add(key);
@@ -268,14 +279,7 @@ export class Transaction {
   remove(key) {
     this._assertActive();
     const chain = this._db.rows.get(key);
-    if (chain) {
-      for (let i = chain.length - 1; i >= 0; i--) {
-        if (this._db._isVisible(chain[i], this._txn)) {
-          chain[i].xmax = this._txn.id;
-          break;
-        }
-      }
-    }
+    if (chain) this._closeVisible(chain);
     this._txn.writes.add(key);
     return this;
   }
@@ -333,7 +337,10 @@ export class Transaction {
     for (const [key, chain] of this._db.rows) {
       const kept = chain.filter((v) => v.xmin !== txn.id);
       for (const v of kept) {
-        if (v.xmax === txn.id) v.xmax = null; // revive rows we tried to delete
+        // Undo any supersession we stamped: restore the version's prior xmax
+        // (usually null, but a concurrent committed writer's id if it had
+        // already superseded the row under our frozen snapshot).
+        if (v.xmax === txn.id) v.xmax = v.priorXmax ?? null;
       }
       this._db.rows.set(key, kept);
     }
