@@ -36,8 +36,6 @@ export class SerializationError extends Error {
 // visible to every snapshot.
 const SYSTEM_TXID = 0;
 
-let VERSION_SEQ = 1;
-
 export class Database {
   /**
    * @param {Object<string, any>} [seed] initial committed rows, keyed by id.
@@ -56,8 +54,9 @@ export class Database {
     });
     this._nextTxid = 1;
     this._commitSeq = 1;
+    this._versionSeq = 1; // version ids are local to this database, numbered from 1
     for (const [key, value] of Object.entries(seed)) {
-      this.rows.set(key, [{ id: VERSION_SEQ++, value, xmin: SYSTEM_TXID, xmax: null }]);
+      this.rows.set(key, [{ id: this._versionSeq++, value, xmin: SYSTEM_TXID, xmax: null }]);
     }
   }
 
@@ -269,7 +268,7 @@ export class Transaction {
     this._assertActive();
     const chain = this._db.rows.get(key) || [];
     this._closeVisible(chain);
-    chain.push({ id: VERSION_SEQ++, value, xmin: this._txn.id, xmax: null });
+    chain.push({ id: this._db._versionSeq++, value, xmin: this._txn.id, xmax: null });
     this._db.rows.set(key, chain);
     this._txn.writes.add(key);
     return this;
