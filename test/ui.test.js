@@ -100,6 +100,7 @@ async function mount(appOpts = { keyboard: false }) {
     panel: new FakeNode('aside'),
     callout: new FakeNode('div'),
     mute: new FakeNode('button'),
+    live: new FakeNode('div'),
   };
   roots.mute.append(new FakeNode('span')); // a stand-in for the .mute__label
   const app = createApp(roots, appOpts);
@@ -159,6 +160,17 @@ test('scenarioIdFromHash accepts known ids and rejects junk', async () => {
   assert.equal(scenarioIdFromHash('#nope'), null);
   assert.equal(scenarioIdFromHash(''), null);
   assert.equal(scenarioIdFromHash(undefined), null);
+});
+
+test('the live region narrates each step and the final verdict', async () => {
+  const { app, roots } = await mount();
+  app.pickScenario('write-skew');
+  assert.match(allText(roots.live), /Step 0 of/, 'starts with the step count');
+  app.stepForward();
+  assert.match(allText(roots.live), /Step 1 of/, 'updates the step count');
+  assert.ok(allText(roots.live).length > 12, 'includes the action explanation');
+  while (!app.state.stepper.atEnd) app.stepForward();
+  assert.match(allText(roots.live), /WRITE SKEW/, 'announces the anomaly verdict at the end');
 });
 
 test('arrow keys and space drive the timeline; r resets', async () => {
