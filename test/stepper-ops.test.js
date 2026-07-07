@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ISO } from '../src/engine/mvcc.js';
-import { buildTrace } from '../src/engine/stepper.js';
+import { buildTrace, Stepper } from '../src/engine/stepper.js';
 
 const both = (iso) => ({ T1: iso, T2: iso });
 
@@ -88,6 +88,51 @@ test('a runtime error that is not a serialization conflict is surfaced', () => {
   assert.equal(errFrame.error, 'Error');
   assert.match(errFrame.result, /^✗ Error/);
   assert.match(errFrame.explain, /read failed/);
+});
+
+test('a read-committed read names the latest committed version it resolved', () => {
+  const { frames } = trace(
+    [
+      { actor: 'T1', op: 'begin' },
+      { actor: 'T1', op: 'read', key: 'x' },
+    ],
+    { seed: { x: 7 } },
+  );
+  assert.match(frames.at(-1).explain, /latest committed version/);
+});
+
+test('a repeatable read explains the newer committed value it cannot see', () => {
+  const { frames } = trace(
+    [
+      { actor: 'T1', op: 'begin' }, // RR — freezes here
+      { actor: 'T1', op: 'read', key: 'x' },
+      { actor: 'T2', op: 'begin' },
+      { actor: 'T2', op: 'write', key: 'x', value: 2 },
+      { actor: 'T2', op: 'commit' },
+      { actor: 'T1', op: 'read', key: 'x' }, // still 1, newer value hidden
+    ],
+    { seed: { x: 1 }, levels: { T1: ISO.REPEATABLE_READ, T2: ISO.READ_COMMITTED } },
+  );
+  const reread = frames.at(-1);
+  assert.equal(reread.result, '= 1', 'frozen snapshot still resolves the old value');
+  assert.match(reread.explain, /repeatable read/i);
+});
+
+test('reset returns the cursor to the initial frame', () => {
+  const st = new Stepper(
+    { id: 'synthetic', anomaly: 'lost-update', seed: { x: 1 }, steps: [
+      { actor: 'T1', op: 'begin' },
+      { actor: 'T1', op: 'write', key: 'x', value: 2 },
+    ] },
+    both(ISO.READ_COMMITTED),
+  );
+  st.stepForward();
+  st.stepForward();
+  assert.equal(st.atEnd, true);
+  const frame = st.reset();
+  assert.equal(st.cursor, 0);
+  assert.equal(frame.index, 0);
+  assert.equal(st.atStart, true);
 });
 
 test('an unknown op is caught and recorded as an error, not a crash', () => {
