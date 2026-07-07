@@ -454,6 +454,31 @@ export function createApp(roots, opts = {}) {
 
   if (roots.mute) roots.mute.addEventListener('click', toggleMute);
 
+  function onKey(e) {
+    const tag = (e.target && e.target.tagName) || '';
+    const onButton = tag === 'BUTTON';
+    switch (e.key) {
+      case 'ArrowRight':
+        e.preventDefault(); stepForward(); break;
+      case 'ArrowLeft':
+        e.preventDefault(); stepBack(); break;
+      case ' ':
+        if (onButton) return; // let the focused button handle its own activation
+        e.preventDefault(); stepForward(); break;
+      case 'r': case 'R':
+        if (!onButton) reset(); break;
+      case 'p': case 'P':
+        if (!onButton) togglePlay(); break;
+      case 'm': case 'M':
+        if (!onButton) toggleMute(); break;
+      default:
+        return;
+    }
+  }
+  if (opts.keyboard !== false && typeof document !== 'undefined') {
+    document.addEventListener('keydown', onKey);
+  }
+
   renderAll();
   syncMute();
 
