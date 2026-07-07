@@ -70,11 +70,17 @@ class FakeNode {
 }
 
 function fakeDocument() {
+  const listeners = {};
   return {
     createElement: (t) => new FakeNode(t),
     createTextNode: (s) => txt(s),
     getElementById: () => null,
-    addEventListener: () => {},
+    addEventListener: (type, fn) => (listeners[type] || (listeners[type] = [])).push(fn),
+    // Test helper: fire a keydown at the document, as the browser would.
+    fireKey(key, target = {}) {
+      const ev = { key, target, preventDefault() {} };
+      (listeners.keydown || []).forEach((fn) => fn(ev));
+    },
   };
 }
 
@@ -84,8 +90,9 @@ function allText(node) {
   return node.children.map(allText).join(' ');
 }
 
-async function mount() {
-  globalThis.document = fakeDocument();
+async function mount(appOpts = { keyboard: false }) {
+  const doc = fakeDocument();
+  globalThis.document = doc;
   const { createApp } = await import('../src/ui/app.js');
   const roots = {
     rail: new FakeNode('aside'),
@@ -95,8 +102,8 @@ async function mount() {
     mute: new FakeNode('button'),
   };
   roots.mute.append(new FakeNode('span')); // a stand-in for the .mute__label
-  const app = createApp(roots, { keyboard: false });
-  return { app, roots };
+  const app = createApp(roots, appOpts);
+  return { app, roots, doc };
 }
 
 test('the app mounts and renders all three regions', async () => {
@@ -152,6 +159,68 @@ test('scenarioIdFromHash accepts known ids and rejects junk', async () => {
   assert.equal(scenarioIdFromHash('#nope'), null);
   assert.equal(scenarioIdFromHash(''), null);
   assert.equal(scenarioIdFromHash(undefined), null);
+});
+
+test('arrow keys and space drive the timeline; r resets', async () => {
+  const fakeSound = { play() {}, resume() {}, toggleMute() {}, get muted() { return false; } };
+  const { app, doc } = await mount({ keyboard: true, sound: fakeSound });
+  doc.fireKey('ArrowRight');
+  doc.fireKey('ArrowRight');
+  assert.equal(app.state.stepper.cursor, 2, 'ArrowRight steps forward');
+  doc.fireKey('ArrowLeft');
+  assert.equal(app.state.stepper.cursor, 1, 'ArrowLeft steps back');
+  doc.fireKey(' ');
+  assert.equal(app.state.stepper.cursor, 2, 'space steps forward');
+  doc.fireKey('r');
+  assert.equal(app.state.stepper.cursor, 0, 'r resets to the start');
+});
+
+test('space is ignored when a button is focused so it activates the button', async () => {
+  const fakeSound = { play() {}, resume() {}, toggleMute() {}, get muted() { return false; } };
+  const { app, doc } = await mount({ keyboard: true, sound: fakeSound });
+  doc.fireKey(' ', { tagName: 'BUTTON' });
+  assert.equal(app.state.stepper.cursor, 0, 'space on a button does not double-fire a step');
+});
+
+test('m toggles mute from the keyboard', async () => {
+  let muted = false;
+  const fakeSound = {
+    play() {}, resume() {},
+    toggleMute() { muted = !muted; },
+    get muted() { return muted; },
+  };
+  const { doc } = await mount({ keyboard: true, sound: fakeSound });
+  doc.fireKey('m');
+  assert.equal(muted, true, 'm mutes');
+  doc.fireKey('m');
+  assert.equal(muted, false, 'm unmutes');
+});
+
+test('p toggles play from the keyboard without leaking a timer', async () => {
+  const fakeSound = { play() {}, resume() {}, toggleMute() {}, get muted() { return false; } };
+  const { app, doc } = await mount({ keyboard: true, sound: fakeSound });
+  doc.fireKey('p');
+  assert.equal(app.state.playing, true, 'p starts playback');
+  doc.fireKey('p');
+  assert.equal(app.state.playing, false, 'p pauses and clears the timer');
+});
+
+test('play runs to the end then stops on its own', async () => {
+  const fakeSound = { play() {}, resume() {}, toggleMute() {}, get muted() { return false; } };
+  // Run the play loop synchronously by making setTimeout fire immediately.
+  const realSetTimeout = globalThis.setTimeout;
+  const realClearTimeout = globalThis.clearTimeout;
+  globalThis.setTimeout = (fn) => { fn(); return 0; };
+  globalThis.clearTimeout = () => {};
+  try {
+    const { app } = await mount({ keyboard: false, sound: fakeSound });
+    app.togglePlay();
+    assert.equal(app.state.stepper.atEnd, true, 'play advances to the end');
+    assert.equal(app.state.playing, false, 'and stops itself at the end');
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    globalThis.clearTimeout = realClearTimeout;
+  }
 });
 
 test('createApp honours an initial scenarioId', async () => {
