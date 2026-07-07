@@ -7,7 +7,7 @@
   "scripts": {
     "test": "node --test",
     "start": "node scripts/serve.js",
-    "lint": "node --check src/engine/mvcc.js && node --check src/engine/scenarios.js"
+    "lint": "for f in src/engine/mvcc.js src/engine/scenarios.js src/engine/stepper.js src/ui/app.js src/ui/sound.js; do node --check \"$f\" || exit 1; done"
   },
   "keywords": [
     "database",
