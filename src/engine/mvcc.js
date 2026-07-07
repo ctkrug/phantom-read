@@ -101,6 +101,47 @@ export class Database {
     if (version.xmax === txn.id) return false; // we deleted it ourselves
     return !this._committedVisible(version.xmax, txn);
   }
+
+  /**
+   * The value an outside observer would see right now: the newest version whose
+   * creator is committed and whose deletion (if any) is not committed. Used by
+   * the UI to render the "ground truth" row value independent of any lane.
+   */
+  committedValue(key) {
+    const chain = this.rows.get(key);
+    if (!chain) return undefined;
+    for (let i = chain.length - 1; i >= 0; i--) {
+      const v = chain[i];
+      const creator = this.txns.get(v.xmin);
+      if (!creator || creator.status !== TXN.COMMITTED) continue;
+      if (v.xmax == null) return v.value;
+      const closer = this.txns.get(v.xmax);
+      if (!closer || closer.status !== TXN.COMMITTED) return v.value;
+    }
+    return undefined;
+  }
+
+  /** All keys ever touched, in stable insertion order, for rendering the table. */
+  keys() {
+    return [...this.rows.keys()];
+  }
+
+  /**
+   * A plain, defensively-copied view of a row's version chain, each version
+   * annotated with the status of its creating/closing transactions. This is what
+   * the UI renders as the dimensioned assembly — with live xmin/xmax stamps.
+   */
+  versionsOf(key) {
+    const chain = this.rows.get(key) || [];
+    return chain.map((v) => ({
+      id: v.id,
+      value: v.value,
+      xmin: v.xmin,
+      xmax: v.xmax,
+      xminStatus: this.txns.get(v.xmin)?.status ?? null,
+      xmaxStatus: v.xmax == null ? null : (this.txns.get(v.xmax)?.status ?? null),
+    }));
+  }
 }
 
 export class Transaction {
@@ -117,6 +158,35 @@ export class Transaction {
   }
   get status() {
     return this._txn.status;
+  }
+
+  /** The frozen begin-snapshot: committed txn ids this transaction can see. */
+  get snapshot() {
+    return [...(this._txn.snapshot ?? [])];
+  }
+
+  /** Keys this transaction has read (drives the antidependency explanation). */
+  get reads() {
+    return [...this._txn.reads];
+  }
+
+  /** Keys this transaction has written. */
+  get writes() {
+    return [...this._txn.writes];
+  }
+
+  /**
+   * Resolve the value visible for `key` WITHOUT recording a read. The UI calls
+   * this to show what each lane currently sees on every row; using `read` would
+   * pollute the read set and change commit-time antidependency checks.
+   */
+  peek(key) {
+    const chain = this._db.rows.get(key);
+    if (!chain) return undefined;
+    for (let i = chain.length - 1; i >= 0; i--) {
+      if (this._db._isVisible(chain[i], this._txn)) return chain[i].value;
+    }
+    return undefined;
   }
 
   _assertActive() {
