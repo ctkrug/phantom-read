@@ -252,6 +252,16 @@ test('arrow keys and space drive the timeline; r resets', async () => {
   assert.equal(app.state.stepper.cursor, 0, 'r resets to the start');
 });
 
+test('Home and End jump to the start and end of the timeline', async () => {
+  const fakeSound = { play() {}, resume() {}, toggleMute() {}, get muted() { return false; } };
+  const { app, doc } = await mount({ keyboard: true, sound: fakeSound });
+  doc.fireKey('End');
+  assert.equal(app.state.stepper.cursor, app.state.stepper.length, 'End jumps to the last frame');
+  assert.equal(app.state.stepper.atEnd, true);
+  doc.fireKey('Home');
+  assert.equal(app.state.stepper.cursor, 0, 'Home jumps back to the start');
+});
+
 test('space is ignored when a button is focused so it activates the button', async () => {
   const fakeSound = { play() {}, resume() {}, toggleMute() {}, get muted() { return false; } };
   const { app, doc } = await mount({ keyboard: true, sound: fakeSound });
