@@ -6,6 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ISO } from '../src/engine/mvcc.js';
+import { SCENARIOS } from '../src/engine/scenarios.js';
 import { buildTrace, Stepper } from '../src/engine/stepper.js';
 
 const both = (iso) => ({ T1: iso, T2: iso });
@@ -13,6 +14,28 @@ const both = (iso) => ({ T1: iso, T2: iso });
 function trace(steps, { seed = {}, anomaly = 'lost-update', levels = both(ISO.READ_COMMITTED) } = {}) {
   return buildTrace({ id: 'synthetic', anomaly, seed, steps }, levels);
 }
+
+test('every scenario builds a well-formed trace at every level pairing', () => {
+  // The UI lets each lane pick any level independently, so all 3x3 pairings per
+  // scenario must produce a clean trace — never a throw or a malformed frame.
+  const LEVELS = [ISO.READ_COMMITTED, ISO.REPEATABLE_READ, ISO.SERIALIZABLE];
+  for (const scenario of SCENARIOS) {
+    for (const t1 of LEVELS) {
+      for (const t2 of LEVELS) {
+        const label = `${scenario.id} T1=${t1} T2=${t2}`;
+        let trace;
+        assert.doesNotThrow(() => { trace = buildTrace(scenario, { T1: t1, T2: t2 }); }, label);
+        assert.equal(trace.frames.length, scenario.steps.length + 1, `${label} frame count`);
+        for (const f of trace.frames) {
+          assert.ok(f.txns.T1 && f.txns.T2, `${label} frame ${f.index} has both lanes`);
+          assert.ok(Array.isArray(f.table), `${label} frame ${f.index} has a table`);
+        }
+        assert.ok(['fired', 'prevented'].includes(trace.outcome.status), `${label} outcome`);
+        assert.ok(trace.flare && Number.isInteger(trace.flare.index), `${label} flare`);
+      }
+    }
+  }
+});
 
 test('a remove step marks the row deleted and is explained', () => {
   const { frames } = trace(
