@@ -299,12 +299,37 @@ export function createApp(roots, opts = {}) {
   }
 
   function renderRow(row, frame) {
-    const node = el('div', { class: 'row' },
-      el('span', { class: 'row__key', text: row.key }),
-      el('span', { class: 'row__value', text: fmt(row.committed) }),
+    const st = state.stepper;
+    const flaring = st.flaring && st.flare.keys.includes(row.key);
+    const node = el('div', {
+      class: `row ${flaring ? (st.flare.prevented ? 'row--calm' : 'row--flare') : ''}`,
+    },
+      el('div', { class: 'row__head' },
+        el('span', { class: 'row__key', text: row.key }),
+        el('span', { class: 'row__value', text: fmt(row.committed) }),
+      ),
+      renderChain(row),
     );
     node.append(renderSees(row.key, frame));
     return node;
+  }
+
+  function renderChain(row) {
+    const chain = el('div', { class: 'chain', aria: { label: `version chain for ${row.key}` } });
+    row.versions.forEach((v, i) => {
+      const live = v.xmax == null;
+      chain.append(
+        el('div', {
+          class: `ver ver--${v.xminStatus || 'active'} ${live ? 'ver--live' : 'ver--dead'}`,
+          title: `v${v.id} · xmin ${v.xmin} (${v.xminStatus}) · xmax ${v.xmax == null ? '∞' : `${v.xmax} (${v.xmaxStatus})`}`,
+        },
+          el('span', { class: 'ver__val', text: fmt(v.value) }),
+          el('span', { class: 'ver__stamp', text: `xmin ${v.xmin} · xmax ${v.xmax == null ? '∞' : v.xmax}` }),
+        ),
+      );
+      if (i < row.versions.length - 1) chain.append(el('span', { class: 'chain__arrow', text: '→' }));
+    });
+    return chain;
   }
 
   function renderSees(key, frame) {
