@@ -99,6 +99,22 @@ test('resolve reports a hidden newer committed version under a frozen snapshot',
   assert.equal(fresh.hiddenNewerCommitted, false, 'nothing is hidden from RC');
 });
 
+test('version ids are local to a database and number from 1', () => {
+  // A prior database must not bleed its version counter into a later one, or the
+  // UI renders a fresh chain starting at an arbitrary id like v37.
+  const a = new Database({ x: 1 });
+  a.begin(ISO.READ_COMMITTED).write('x', 2);
+
+  const b = new Database({ y: 9 });
+  assert.equal(b.versionsOf('y')[0].id, 1, 'a fresh database numbers its versions from 1');
+  b.begin(ISO.READ_COMMITTED).write('y', 10);
+  assert.deepEqual(
+    b.versionsOf('y').map((v) => v.id),
+    [1, 2],
+    'ids increment within the database, independent of any other',
+  );
+});
+
 test('resolve on an unknown key returns a null version', () => {
   const db = new Database({ x: 1 });
   const t = db.begin(ISO.READ_COMMITTED);
